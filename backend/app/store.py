@@ -14,12 +14,22 @@ class Store:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
+        # 仅来自种子数据的表才算业务模块；运行期新增表（如索引发布回执）
+        # 不进入运营概览与健康检查的模块计数。
+        self._business_modules = set(self._tables)
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)
 
+    def business_module_names(self) -> list[str]:
+        return sorted(self._business_modules)
+
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])
+
+    def ensure_table(self, module: str, initial: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+        """确保运行期新模块（如索引发布回执）在仓库里有独立表，返回该表。"""
+        return self._tables.setdefault(module, list(initial or []))
 
     def find(self, module: str, entry_id: int) -> dict[str, Any] | None:
         for row in self.rows(module):
@@ -29,7 +39,7 @@ class Store:
 
     def overview(self) -> dict[str, object]:
         modules: list[dict[str, object]] = []
-        for name in self.module_names():
+        for name in self.business_module_names():
             rows = self.rows(name)
             modules.append({
                 "name": name,

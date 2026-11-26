@@ -15,6 +15,7 @@ from app.services.pseudonym import PseudonymService
 from app.services.k_anonymity import KAnonymityService
 from app.services.differential_sql import DifferentialSqlService
 from app.services.encrypt_index import EncryptIndexService
+from app.services.index_release import IndexReleaseService
 from app.services.watermark import WatermarkService
 from app.services.consent_registry import ConsentRegistryService
 from app.services.risk_scan import RiskScanService

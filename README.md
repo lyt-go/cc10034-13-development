@@ -16,7 +16,9 @@
 │   └── vite.config.ts        dev server 配置（open: false）
 ├── backend/                  FastAPI（Python） 后端
 │   ├── app/routers/resource.py  通用查询/导出/登记/动作接口
+│   ├── app/routers/index_release.py  索引发布专用路由（先于通用路由注册）
 │   ├── app/services/<key>.py    每个模块独立领域逻辑
+│   ├── app/services/index_release.py  索引发布范围核验/回执/等级检索
 │   ├── app/services/base.py     共享服务骨架
 │   └── app/store.py          内存数据仓库与示例数据
 ├── .gitignore
@@ -76,6 +78,32 @@ npm run dev
   `frontend/src/domain/<模块>.ts`，用于承载真实业务差异并维持36题位容量。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 索引发布（上线前范围核验）
+
+密文索引重建后，新增「索引发布」页（路由 `/index-release`），由后端做上线前
+范围核验，避免受限资源漏给低等级访问者：
+
+- 操作员提交**待发布索引条目**与本次发布的**资源分级上限**，后端逐条核验索引
+  状态及关联资源在分级分类模块中的实际安全等级，计算覆盖范围并生成
+  **索引发布回执**（含提交快照、实际生效范围、冲突明细）。
+- 当索引发布与**资源升等**冲突（资源实际等级高于声明分级）时，回执判定为
+  「发布失败」，**不替换**此前仍生效的回执——失败的重建/发布不会吞掉此前
+  仍可检索的低等级条目；按正确等级重新发布才会标记替代旧回执。
+- 检索入口 `POST /api/index-release/search` 按「当前生效回执 + 访问者等级」
+  返回可用条目，每次结果都带 `receipt_id`，对应一个可识别的生效范围；
+  普通分析员（L1）检索不到已升等受限（L3）的资源。
+
+专用接口（前缀 `/api/index-release`，先于通用 `/api/{module}` 注册）：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/resources` | 资源分级面板（各数据资源当前安全等级） |
+| POST | `/resources/{tag_id}/upgrade` | 资源升等（默认 L3，只允许调高） |
+| GET | `/indexes` | 可发布索引候选（含关联资源等级与发布条件） |
+| POST | `/publish` | 提交发布，核验覆盖范围并生成回执 |
+| GET | `/receipts` / `/receipts/{id}` | 回执历史 / 发布详情（生效范围+失败后保留条目） |
+| POST | `/search` | 按访问者等级在生效回执范围内检索 |
 
 领域：数据工程
 子方向：数据分析与数据应用
